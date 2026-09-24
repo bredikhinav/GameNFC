@@ -52,7 +52,7 @@ class ResetPasswordIn(BaseModel):
 
 
 class PinIn(BaseModel):
-    pin: str = Field(pattern=r"^\d{4,6}$")
+    pin: str = Field(pattern=r"^\d{4}$")
     password: str = Field(max_length=128)
 
 
@@ -341,6 +341,10 @@ class TxIn(BaseModel):
     comment: str | None = Field(default=None, max_length=140)
     device_id: UUID | None = None
     created_at: datetime | None = None
+
+
+class CommentIn(BaseModel):
+    comment: str = Field(max_length=140)
 
 
 class TxOut(ORM):

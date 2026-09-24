@@ -203,3 +203,12 @@ async def test_allowances_run_once_per_day(api, family, db):
     assert await jobs.run_allowances(db, now + timedelta(minutes=5)) == 0
     assert await balances(api, s) == {"Маша": 30, "Тимур": 30}
     assert await jobs.reconcile(db) == 0
+
+
+async def test_comment_after_the_fact(api, family):
+    r = await api.tx(family["space"], "credit", card_token=family["masha_card"], amount=5)
+    tx_id = r["transaction"]["id"]
+    before = r["transaction"]["seq"]
+    out = await api.post(f"/transactions/{tx_id}/comment", {"comment": "Покупка улицы"})
+    assert out["comment"] == "Покупка улицы" and out["seq"] > before
+    assert out["amount"] == 5
