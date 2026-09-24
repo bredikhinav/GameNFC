@@ -71,9 +71,8 @@ async def _email_token(db: AsyncSession, user: User, purpose: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
+    # Behind Caddy, uvicorn --proxy-headers puts the real client address here; a
+    # client-supplied X-Forwarded-For header is not trusted directly.
     return request.client.host if request.client else "unknown"
 
 
