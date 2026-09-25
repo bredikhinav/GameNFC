@@ -15,20 +15,34 @@ ROOT=$(pwd)
 log() { printf '\n\033[1;32m==> %s\033[0m\n' "$*"; }
 
 # --- Docker ---------------------------------------------------------------------------
+# An existing Docker is left as it is: no config changes, no restart of running containers.
 if ! command -v docker >/dev/null || ! docker compose version >/dev/null 2>&1; then
+  if command -v docker >/dev/null; then
+    echo "Docker is installed but 'docker compose' is missing. Install the compose plugin and rerun."
+    exit 1
+  fi
   log "Installing Docker"
   apt-get update -qq
   apt-get install -y -qq docker.io >/dev/null
   apt-get install -y -qq docker-compose-v2 >/dev/null 2>&1 \
     || apt-get install -y -qq docker-compose-plugin >/dev/null 2>&1 \
     || { curl -fsSL https://get.docker.com | sh; }
+  # Docker Hub is not always reachable from Russia: pull through a mirror first.
+  if [ ! -f /etc/docker/daemon.json ]; then
+    echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' > /etc/docker/daemon.json
+  fi
+  systemctl enable docker >/dev/null
+  systemctl restart docker
 fi
-# Docker Hub is not always reachable from Russia: pull through a mirror first.
-if [ ! -f /etc/docker/daemon.json ]; then
-  echo '{"registry-mirrors": ["https://mirror.gcr.io"]}' > /etc/docker/daemon.json
+
+# Ports 80/443 taken by another service (not our own Caddy from a previous run): stop.
+if ss -tlnH '( sport = :80 or sport = :443 )' | grep -q . \
+   && [ -z "$(docker compose ps -q caddy 2>/dev/null)" ]; then
+  echo "Ports 80/443 are already used by another service on this server:"
+  ss -tlnp '( sport = :80 or sport = :443 )'
+  echo "Stopping here so nothing breaks. See docs/deploy-yandex-cloud.md, 'Сервер уже занят'."
+  exit 1
 fi
-systemctl enable --now docker >/dev/null
-systemctl restart docker
 
 # --- Small VMs need swap to build the image --------------------------------------------
 if [ "$(free -m | awk '/Mem:/ {print $2}')" -lt 2000 ] && ! swapon --show | grep -q .; then
