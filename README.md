@@ -47,9 +47,10 @@ flutter test --dart-define=API_URL=http://localhost:8000          # плюс и�
 
 ## Прод
 
+Пошагово для Yandex Cloud — [docs/deploy-yandex-cloud.md](docs/deploy-yandex-cloud.md).
+
 ```bash
-cp server/.env.example .env      # пароли и FP_JWT_SECRET
-docker compose up -d --build     # HTTPS для fantikpay.ru выпустит Caddy
+sudo bash deploy/install.sh      # Docker, секреты в .env, HTTPS (без домена — <ip>.sslip.io)
 docker compose exec api python -m app.cli generate-batch --name "Партия 1" --count 100 --out /tmp/batch.csv
 ```
 

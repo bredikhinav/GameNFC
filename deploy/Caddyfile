@@ -1,5 +1,6 @@
-# HTTPS certificates are issued automatically for the domain.
-fantikpay.ru, www.fantikpay.ru {
+# HTTPS certificates are issued automatically for FP_DOMAIN (set in .env).
+# Without an own domain, <ip-with-dashes>.sslip.io works: it resolves to the server IP.
+{$FP_DOMAIN} {
 	encode gzip
 	header {
 		Strict-Transport-Security "max-age=31536000"

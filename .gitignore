@@ -25,3 +25,6 @@ app/ios/Flutter/flutter_export_environment.sh
 .env
 *.log
 .DS_Store
+
+# Deploy
+backups/

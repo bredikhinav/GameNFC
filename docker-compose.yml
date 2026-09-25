@@ -1,7 +1,6 @@
 # Production stack on one VPS in Russia (152-FZ): API, PostgreSQL, Redis, Caddy (HTTPS),
 # cron jobs and a daily database backup.
-#   cp server/.env.example .env   # set passwords and FP_JWT_SECRET
-#   docker compose up -d --build
+#   sudo bash deploy/install.sh   # creates .env with random secrets, installs Docker, starts
 services:
   api:
     build: ./server
@@ -69,6 +68,8 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    environment:
+      FP_DOMAIN: ${FP_DOMAIN}
     ports: ["80:80", "443:443"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
