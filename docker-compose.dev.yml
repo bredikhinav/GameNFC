@@ -1,0 +1,36 @@
+# Local server for testing: API on http://localhost:8000 (docs at /docs), PostgreSQL, Redis.
+#   docker compose -f docker-compose.dev.yml up --build
+#   docker compose -f docker-compose.dev.yml exec api python -m app.cli seed-demo
+services:
+  api:
+    build: ./server
+    environment:
+      FP_ENV: dev
+      FP_DATABASE_URL: postgresql+asyncpg://fantik:fantik@db:5432/fantikpay
+      FP_REDIS_URL: redis://redis:6379/0
+      FP_PUBLIC_BASE_URL: https://fantikpay.ru
+    ports: ["8000:8000"]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fantik
+      POSTGRES_PASSWORD: fantik
+      POSTGRES_DB: fantikpay
+    ports: ["5432:5432"]
+    volumes:
+      - devdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fantik -d fantikpay"]
+      interval: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+volumes:
+  devdata:

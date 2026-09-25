@@ -9,6 +9,16 @@
 | [`docs/`](docs) | [Архитектура](docs/architecture.md) и [технические решения](docs/technical-decisions.md) |
 | `docker-compose.yml`, `deploy/` | Развёртывание на одном VPS |
 
+## Как протестировать
+
+Пошаговая инструкция — [docs/testing.md](docs/testing.md). Коротко:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build -d
+docker compose -f docker-compose.dev.yml exec api python -m app.cli seed-demo   # demo@fantikpay.ru / demo12345
+cd app && flutter run --dart-define=API_URL=http://10.0.2.2:8000 --dart-define=DEBUG_CARDS=true
+```
+
 ## Быстрый старт для разработки
 
 Сервер (нужны PostgreSQL 16 и Redis):

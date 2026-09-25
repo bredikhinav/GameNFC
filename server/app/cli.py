@@ -86,6 +86,82 @@ async def import_batch(name: str, chip: str, path: str) -> None:
     print(f"batch {batch.id}: imported {added}, skipped {len(rows) - added} existing")
 
 
+DEMO_EMAIL = "demo@fantikpay.ru"
+DEMO_PASSWORD = "demo12345"
+DEMO_CARDS = {
+    "Маша": ("DEMOMASHA01", 340),
+    "Тимур": ("DEMOTIMUR01", 125),
+    "Соня": ("DEMOSONYA01", 60),
+}
+
+
+async def seed_demo() -> None:
+    """A parent account with three children, a card each and some coins."""
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from app.models import Player, Space, SpaceMember, User
+    from app.security import hash_password, hash_pin, now
+    from app.services import ledger
+
+    async with SessionLocal() as db:
+        if await db.scalar(select(User).where(User.email == DEMO_EMAIL)):
+            print(f"demo already exists: {DEMO_EMAIL} / {DEMO_PASSWORD}")
+            return
+        user = User(email=DEMO_EMAIL, password_hash=hash_password(DEMO_PASSWORD), name="Мама")
+        user.pin_salt, user.pin_hash, user.pin_iterations = hash_pin("1234")
+        space = Space(
+            type="family",
+            name="Моя семья",
+            daily_transfer_limit=100,
+            transfer_approval_threshold=50,
+            seq=1,
+            updated_seq=1,
+        )
+        db.add_all([user, space])
+        await db.flush()
+        db.add(SpaceMember(space_id=space.id, user_id=user.id, role="owner"))
+        ledger.create_system_wallets(db, space.id, seq=1)
+        await db.flush()
+        for name, (token, coins) in DEMO_CARDS.items():
+            seq = await ledger.bump_seq(db, space.id)
+            player = Player(
+                space_id=space.id, name=name, consent_user_id=user.id, consent_at=now(), seq=seq
+            )
+            db.add(player)
+            await db.flush()
+            ledger.create_persistent_wallet(db, player, seq)
+            db.add(
+                Card(
+                    token=token,
+                    status="active",
+                    space_id=space.id,
+                    player_id=player.id,
+                    activated_at=now(),
+                    seq=seq,
+                )
+            )
+            await db.flush()
+            await db.refresh(space)
+            await ledger.post(
+                db,
+                space=space,
+                seq=seq,
+                tx_id=uuid4(),
+                tx_type="credit",
+                from_wallet_id=ledger.system_wallet_id(space.id, "bank"),
+                to_wallet_id=ledger.persistent_wallet_id(player.id),
+                amount=coins,
+                created_at=datetime.now(UTC),
+                strict=True,
+                operator_id=user.id,
+                comment="Стартовые монеты",
+            )
+        await db.commit()
+    print(f"login: {DEMO_EMAIL} / {DEMO_PASSWORD}, PIN 1234")
+    print("cards: " + ", ".join(f"{n} = {t}" for n, (t, _) in DEMO_CARDS.items()))
+
+
 async def run_allowances() -> None:
     async with SessionLocal() as db:
         print(f"allowances posted: {await jobs.run_allowances(db)}")
@@ -112,6 +188,7 @@ def main() -> None:
     i.add_argument("--chip", choices=CHIPS, default="ntag215")
     i.add_argument("csv")
     sub.add_parser("run-allowances")
+    sub.add_parser("seed-demo")
     r = sub.add_parser("reconcile")
     r.add_argument("--fix", action="store_true")
     args = parser.parse_args()
@@ -120,6 +197,8 @@ def main() -> None:
         asyncio.run(generate_batch(args.name, args.count, args.chip, args.out))
     elif args.command == "import-batch":
         asyncio.run(import_batch(args.name, args.chip, args.csv))
+    elif args.command == "seed-demo":
+        asyncio.run(seed_demo())
     elif args.command == "run-allowances":
         asyncio.run(run_allowances())
     else:

@@ -96,3 +96,25 @@ async def test_public_card_page(client, family):
     r = await client.get(f"/c/{family['masha_card']}")
     assert r.status_code == 200
     assert "ФантикПэй" in r.text and "Маша" not in r.text
+
+
+async def test_seed_demo_is_usable(api):
+    from tests.conftest import uid
+
+    await cli.seed_demo()
+    await cli.seed_demo()  # idempotent
+    login = await api.post("/auth/login", {"email": cli.DEMO_EMAIL, "password": cli.DEMO_PASSWORD})
+    api.token = login["access_token"]
+    space = (await api.get("/spaces"))[0]
+    players = {p["name"]: p["balance"] for p in await api.get(f"/spaces/{space['id']}/players")}
+    assert players == {"Маша": 340, "Тимур": 125, "Соня": 60}
+    await api.post(
+        "/transactions",
+        {
+            "id": uid(),
+            "type": "debit",
+            "space_id": space["id"],
+            "card_token": "DEMOMASHA01",
+            "amount": 40,
+        },
+    )
